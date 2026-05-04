@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Truck Diesel</title>
+
+<style>
+body {
+  font-family: system-ui, Arial;
+  background: #f6f7fb;
+  margin: 0;
+  padding: 25px;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+}
+
+.title {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 15px;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+label {
+  width: 90px;
+  font-weight: 600;
+}
+
+/* INPUT STYLE */
+.input-box {
+  height: 30px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+/* SAME WIDTH INPUTS */
+#convoyInput,
+#payToInput {
+  width: 260px;
+}
+
+/* PAY TO UPPERCASE */
+#payToInput {
+  text-transform: uppercase;
+}
+
+/* REMOVE NUMBER ARROWS */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* TABLE */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+th, td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  background: #fafafa;
+  text-transform: uppercase;
+  font-size: 16px;
+  color: #666;
+}
+
+td input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  outline: none;
+}
+
+.price {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+/* BUTTONS */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+button {
+  border: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.primary {
+  background: #6c63ff;
+  color: white;
+}
+
+.dark {
+  background: #111;
+  color: white;
+}
+
+.delete-btn {
+  color: red;
+  font-weight: 600;
+  background: transparent;
+}
+
+.total {
+  text-align: right;
+  margin-top: 10px;
+  font-weight: 700;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="title">TRUCK DIESEL</div>
+
+<div id="todayDate" style="text-align:center;margin-bottom:10px;"></div>
+
+<!-- CONVOY (2 DIGITS ONLY) -->
+<div class="form-row">
+  <label>CONVOY</label>
+  <input type="text" id="convoyInput"
+  class="input-box"
+  inputmode="numeric"
+  oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,2); saveData()">
+</div>
+
+<!-- PAY TO -->
+<div class="form-row">
+  <label>PAY TO</label>
+  <input type="text" id="payToInput"
+  class="input-box"
+  maxlength="30"
+  oninput="this.value=this.value.toUpperCase(); saveData()">
+</div>
+
+<table id="fuelTable">
+<tr>
+  <th>PLATE NUMBER</th>
+  <th>PRICE (DJF)</th>
+  <th>LITERS</th>
+  <th>TOTAL (DJF)</th>
+  <th>ACTION</th>
+</tr>
+</table>
+
+<div class="actions">
+  <button class="primary" onclick="addRow()">+ Add Row</button>
+  <button class="dark" onclick="exportReport()">Export</button>
+  <button class="dark" onclick="resetAll()">Reset</button>
+</div>
+
+<div class="total">
+TOTAL: <span id="grandTotal">0 DJF</span>
+</div>
+
+</div>
+
+<script>
+const PRICE = 205;
+const today = new Date().toISOString().split("T")[0];
+
+document.getElementById("todayDate").innerText =
+  new Date().toLocaleDateString();
+
+/* STORAGE */
+function getStorage() {
+  return JSON.parse(localStorage.getItem("fuelHistory") || "{}");
+}
+
+function saveData() {
+  let data = getStorage();
+  let rows = document.getElementById("fuelTable").rows;
+
+  data[today] = {
+    convoy: document.getElementById("convoyInput").value,
+    payTo: document.getElementById("payToInput").value,
+    rows: []
+  };
+
+  for (let i = 1; i < rows.length; i++) {
+    data[today].rows.push({
+      plate: rows[i].cells[0].children[0].value,
+      liters: rows[i].cells[2].children[0].value
+    });
+  }
+
+  localStorage.setItem("fuelHistory", JSON.stringify(data));
+}
+
+/* TABLE */
+function addRow() {
+  let row = document.getElementById("fuelTable").insertRow();
+
+  row.innerHTML = `
+    <td><input oninput="this.value=this.value.toUpperCase(); saveData()"></td>
+    <td class="price">205</td>
+    <td><input type="number" oninput="calcAll(); saveData()"></td>
+    <td><input readonly></td>
+    <td><button class="delete-btn" onclick="deleteRow(this)">X</button></td>
+  `;
+  saveData();
+}
+
+function deleteRow(btn) {
+  btn.parentElement.parentElement.remove();
+  calcAll();
+  saveData();
+}
+
+/* CALC */
+function calcAll() {
+  let rows = document.getElementById("fuelTable").rows;
+  let total = 0;
+
+  for (let i = 1; i < rows.length; i++) {
+    let liters = parseFloat(rows[i].cells[2].children[0].value) || 0;
+    let t = liters * PRICE;
+
+    rows[i].cells[3].children[0].value = t.toFixed(2);
+    total += t;
+  }
+
+  document.getElementById("grandTotal").innerText =
+    total.toLocaleString() + " DJF";
+}
+
+/* RESET */
+function resetAll() {
+  if (!confirm("Reset all data?")) return;
+
+  document.getElementById("convoyInput").value = "";
+  document.getElementById("payToInput").value = "";
+
+  let table = document.getElementById("fuelTable");
+  while (table.rows.length > 1) table.deleteRow(1);
+
+  document.getElementById("grandTotal").innerText = "0 DJF";
+
+  saveData();
+}
+
+/* EXPORT */
+function exportReport() {
+  let rows = document.getElementById("fuelTable").rows;
+  let convoy = document.getElementById("convoyInput").value;
+  let payTo = document.getElementById("payToInput").value;
+
+  let lines = [];
+  let total = 0;
+
+  lines.push(`CONVOY${convoy}`);
+  lines.push(`PAY TO : ${payTo}`);
+  lines.push(`TRUCK DIESEL ${new Date().toLocaleDateString()}`);
+  lines.push("");
+
+  for (let i = 1; i < rows.length; i++) {
+    let plate = rows[i].cells[0].children[0].value;
+    let liters = parseFloat(rows[i].cells[2].children[0].value) || 0;
+
+    let t = liters * PRICE;
+    total += t;
+
+    lines.push(`${plate}   ${liters.toFixed(2)}L   ${t.toLocaleString()}DJF`);
+  }
+
+  lines.push("");
+  lines.push(`TOTAL: ${total.toLocaleString()}DJF`);
+
+  let file = "data:text/plain;charset=utf-8," + encodeURIComponent(lines.join("\n"));
+  let a = document.createElement("a");
+  a.href = file;
+  a.download = `CONVOY_${convoy}.txt`;
+  a.click();
+}
+
+/* INIT */
+window.onload = () => {
+  let data = getStorage();
+  if (data[today]) {
+    document.getElementById("convoyInput").value = data[today].convoy;
+    document.getElementById("payToInput").value = data[today].payTo;
+  }
+};
+</script>
+
+</body>
+</html>
